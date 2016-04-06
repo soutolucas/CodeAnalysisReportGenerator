@@ -47,7 +47,8 @@ namespace CodeAnalysisReportGenerator
 
                 listDirectoryInfo = new List<DirectoryInfo>();
 
-                DirectoryInfo directoryInfo = new DirectoryInfo(properties.RootDirectory);
+                lblInformation.Text = "Getting projects...";
+                DirectoryInfo directoryInfo = new DirectoryInfo(properties.DirectoryProject);
                 await GetDirectory(directoryInfo);
 
                 listReportGenerator = new List<ReportGenerator>();
@@ -140,7 +141,7 @@ namespace CodeAnalysisReportGenerator
 
         private void SaveConfiguration()
         {
-            properties.RootDirectory = txtProjectDirectory.Text;
+            properties.DirectoryProject = txtProjectDirectory.Text;
             properties.DirectoryRuleSet = txtDirectoryRuleSet.Text;
             properties.DirectoryExcelTemplate = txtDirectoryTemplateExcel.Text;
 
@@ -149,7 +150,7 @@ namespace CodeAnalysisReportGenerator
 
         private void LoadConfiguration()
         {
-            txtProjectDirectory.Text = properties.RootDirectory;
+            txtProjectDirectory.Text = properties.DirectoryProject;
             txtDirectoryRuleSet.Text = properties.DirectoryRuleSet;
             txtDirectoryTemplateExcel.Text = properties.DirectoryExcelTemplate;
         }
@@ -268,11 +269,14 @@ namespace CodeAnalysisReportGenerator
 
         private async Task GetDirectory(DirectoryInfo d)
         {
-            foreach (var item in d.GetDirectories())
+           await Task.Run(async () =>
             {
-                listDirectoryInfo.Add(item);
-                await GetDirectory(item);
-            }
+                foreach (var item in d.GetDirectories())
+                {
+                    listDirectoryInfo.Add(item);
+                    await GetDirectory(item);
+                }
+            });
         }
 
     }

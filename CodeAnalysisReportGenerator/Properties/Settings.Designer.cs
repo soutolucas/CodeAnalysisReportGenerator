@@ -49,18 +49,6 @@ namespace CodeAnalysisReportGenerator.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string ProjectDirectory {
-            get {
-                return ((string)(this["ProjectDirectory"]));
-            }
-            set {
-                this["ProjectDirectory"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("Provider=Microsoft.ACE.OLEDB.12.0;Data Source={0};Extended Properties=\'Excel 12.0" +
             " Xml;HDR=YES;ReadOnly=False; Integrated Security=SSPI\';")]
         public string ConnectionStringExcel {
@@ -69,6 +57,18 @@ namespace CodeAnalysisReportGenerator.Properties {
             }
             set {
                 this["ConnectionStringExcel"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string DirectoryProject {
+            get {
+                return ((string)(this["DirectoryProject"]));
+            }
+            set {
+                this["DirectoryProject"] = value;
             }
         }
     }
