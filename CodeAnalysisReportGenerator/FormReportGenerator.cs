@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Windows.Forms;
-using System.Configuration;
 using Microsoft.Build.Evaluation;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -8,9 +7,6 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Reflection;
 using System.Linq;
-using System.Resources;
-using System.Collections;
-using System.Xml;
 
 namespace CodeAnalysisReportGenerator
 {
@@ -21,6 +17,7 @@ namespace CodeAnalysisReportGenerator
 
     public partial class FormReportGenerator : Form
     {
+        private int progressBarValue;
         private List<DirectoryInfo> listDirectoryInfo;
         private List<ReportGenerator> listReportGenerator;
 
@@ -47,7 +44,7 @@ namespace CodeAnalysisReportGenerator
 
                 listDirectoryInfo = new List<DirectoryInfo>();
 
-                lblInformation.Text = "Getting projects...";
+                lblInformation.Text = "Getting directories...";
                 DirectoryInfo directoryInfo = new DirectoryInfo(properties.DirectoryProject);
                 await GetDirectory(directoryInfo);
 
@@ -59,7 +56,8 @@ namespace CodeAnalysisReportGenerator
                 lblInformation.Text = "Load rule set...";
                 await GetRules();
 
-                await BuildProject();
+                lblInformation.Text = "Find projects...";
+                FindProjects();
 
                 EndExecution();
             }
@@ -67,6 +65,27 @@ namespace CodeAnalysisReportGenerator
             {
                 ControlException(ex);
             }
+        }
+
+        private async void FindProjects()
+        {
+            List<FileInfo> listFileInfo;
+            progressBarValue = 0;
+            if (GetFiles("*.csproj", out listFileInfo))
+            {
+                pbGeneratorReport.Maximum = listFileInfo.Count;
+                await BuildProject(listFileInfo);
+
+                if (GetFiles("*CodeAnalysisLog*", out listFileInfo))
+                {
+                    pbGeneratorReport.Maximum += listFileInfo.Count;
+                    await GetProjectLog(listFileInfo);
+                }
+                else
+                    MessageBox.Show("Não foram encontrados arquivos CodeAnalysisLog no diretório selecionado", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+                MessageBox.Show("Não foram encontrados arquivos .csproj no diretório selecionado","", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private void EndExecution()
@@ -84,22 +103,15 @@ namespace CodeAnalysisReportGenerator
             btnCancel.Enabled = false;
         }
 
-        private async Task BuildProject()
+        private async Task BuildProject(List<FileInfo> listFileInfo)
         {
             await Task.Run(() =>
             {
                 using (ProjectCollection projectCollection = new ProjectCollection())
                 {
                     Project project;
-                    int count = 0;
 
-                    var listProjectPath = GetFiles("*.csproj");
-
-                    //Update status of execution
-                    SetControlPropertyValue(lblInformation, "text", "Building projects...");
-                    SetControlPropertyValue(pbGeneratorReport, "maximum", listProjectPath.Count);
-
-                    foreach (var file in listProjectPath)
+                    foreach (var file in listFileInfo)
                     {
                         if (CancelExecution.cancelExecution)
                             break;
@@ -108,35 +120,30 @@ namespace CodeAnalysisReportGenerator
                         project.Build();
                         projectCollection.UnloadProject(project);
 
-                        SetControlPropertyValue(pbGeneratorReport, "value", count++);
+                        //Update status of execution
+                        SetControlPropertyValue(pbGeneratorReport, "value", ++progressBarValue);
                     }
                 }
-
-                SetControlPropertyValue(pbGeneratorReport, "value", 0);
-                GetProjectLog();
             });
         }
 
-        private void GetProjectLog()
+        private async Task GetProjectLog(List<FileInfo> listFileInfo)
         {
-            ReportGenerator reportGenerator;
-            int count = 1;
-
-            var listProjectPath = GetFiles("*CodeAnalysisLog*");
-
-            //Update status of execution
-            SetControlPropertyValue(lblInformation, "text", "Getting projects log...");
-            SetControlPropertyValue(pbGeneratorReport, "maximum", listProjectPath.Count);
-
-            foreach (var file in listProjectPath)
+            await Task.Run(() =>
             {
-                var result = file.Name.Split('.');
-                reportGenerator = new ReportGenerator(result[0]);
-                reportGenerator.GetCodeAnalysisLog(file.FullName);
-                listReportGenerator.Add(reportGenerator);
+                ReportGenerator reportGenerator;
 
-                SetControlPropertyValue(pbGeneratorReport, "value", count++);
-            }
+                foreach (var file in listFileInfo)
+                {
+                    var result = file.Name.Split('.');
+                    reportGenerator = new ReportGenerator(result?[0]);
+                    reportGenerator.GetCodeAnalysisLog(file.FullName);
+                    listReportGenerator.Add(reportGenerator);
+
+                    //Update status of execution
+                    SetControlPropertyValue(pbGeneratorReport, "value", ++progressBarValue);
+                }
+            });
         }
 
         private void SaveConfiguration()
@@ -207,8 +214,8 @@ namespace CodeAnalysisReportGenerator
 
         private void ValidateField()
         {
-            if (String.IsNullOrWhiteSpace(txtProjectDirectory.Text) || String.IsNullOrWhiteSpace(txtDirectoryRuleSet.Text) ||
-                String.IsNullOrWhiteSpace(txtDirectoryTemplateExcel.Text))
+            if (string.IsNullOrWhiteSpace(txtProjectDirectory.Text) || string.IsNullOrWhiteSpace(txtDirectoryRuleSet.Text) ||
+                string.IsNullOrWhiteSpace(txtDirectoryTemplateExcel.Text))
             {
                 throw new Exception("Todos os campos devem ser preenchidos!");
             }
@@ -251,20 +258,19 @@ namespace CodeAnalysisReportGenerator
                                 ex.Message), "", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-        private List<FileInfo> GetFiles(string fileExtension)
+        private bool GetFiles(string fileExtension, out List<FileInfo> listFileInfo)
         {
-            var listProjectPath = new List<FileInfo>();
-
+            listFileInfo = new List<FileInfo>();
             FileInfo file;
 
             foreach (var directory in listDirectoryInfo)
             {
                 file = directory.GetFiles(fileExtension).FirstOrDefault();
                 if (file != null)
-                    listProjectPath.Add(file);
+                    listFileInfo.Add(file);
             }
 
-            return listProjectPath;
+            return listFileInfo.Count > 0;
         }
 
         private async Task GetDirectory(DirectoryInfo d)

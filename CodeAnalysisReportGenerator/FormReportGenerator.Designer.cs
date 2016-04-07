@@ -40,8 +40,8 @@
             this.lblPathTemplateExcel = new System.Windows.Forms.Label();
             this.txtDirectoryTemplateExcel = new System.Windows.Forms.TextBox();
             this.pbGeneratorReport = new System.Windows.Forms.ProgressBar();
-            this.lblInformation = new System.Windows.Forms.Label();
             this.btnCancel = new System.Windows.Forms.Button();
+            this.lblInformation = new System.Windows.Forms.Label();
             this.gbConfiguration.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -161,14 +161,6 @@
             this.pbGeneratorReport.Size = new System.Drawing.Size(559, 19);
             this.pbGeneratorReport.TabIndex = 10;
             // 
-            // lblInformation
-            // 
-            this.lblInformation.AutoSize = true;
-            this.lblInformation.Location = new System.Drawing.Point(12, 297);
-            this.lblInformation.Name = "lblInformation";
-            this.lblInformation.Size = new System.Drawing.Size(0, 13);
-            this.lblInformation.TabIndex = 11;
-            // 
             // btnCancel
             // 
             this.btnCancel.BackColor = System.Drawing.Color.Silver;
@@ -183,14 +175,22 @@
             this.btnCancel.UseVisualStyleBackColor = false;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
             // 
+            // lblInformation
+            // 
+            this.lblInformation.AutoSize = true;
+            this.lblInformation.Location = new System.Drawing.Point(12, 236);
+            this.lblInformation.Name = "lblInformation";
+            this.lblInformation.Size = new System.Drawing.Size(0, 13);
+            this.lblInformation.TabIndex = 13;
+            // 
             // FormReportGenerator
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.ControlLight;
-            this.ClientSize = new System.Drawing.Size(580, 281);
-            this.Controls.Add(this.btnCancel);
+            this.ClientSize = new System.Drawing.Size(580, 277);
             this.Controls.Add(this.lblInformation);
+            this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.pbGeneratorReport);
             this.Controls.Add(this.gbConfiguration);
             this.Controls.Add(this.btnReportGenerator);
@@ -217,13 +217,13 @@
         private System.Windows.Forms.Label lblPathTemplateExcel;
         private System.Windows.Forms.TextBox txtDirectoryTemplateExcel;
         private System.Windows.Forms.ProgressBar pbGeneratorReport;
-        private System.Windows.Forms.Label lblInformation;
         private System.Windows.Forms.Button btnCancel;
         private System.Windows.Forms.TextBox txtProjectDirectory;
         private System.Windows.Forms.Button btnProjectDirectory;
         private System.Windows.Forms.Label lblDirectory;
         private System.Windows.Forms.Button btnExcelDirectory;
         private System.Windows.Forms.Button btnRuleSetDirectory;
+        private System.Windows.Forms.Label lblInformation;
     }
 }
 
