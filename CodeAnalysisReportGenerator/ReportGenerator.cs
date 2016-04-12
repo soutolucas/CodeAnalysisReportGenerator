@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace CodeAnalysisReportGenerator
 {
@@ -16,12 +15,12 @@ namespace CodeAnalysisReportGenerator
         public int warnings { get; private set; }
         public string rule { get; private set; }
         public string category { get; private set; }
-        public string errorReportGenerator { get; private set; }
+        public string messageReportGenerator { get; private set; } = "CodeAnalysisLog not exists";
 
         public ReportGenerator(string projectName)
         {
             if (listRulesError == null)
-                throw new Exception("O arquivo RuleSet está vazio!");
+                throw new Exception("The RuleSet file is null!");
 
             this.projectName = projectName;
         }
@@ -29,9 +28,10 @@ namespace CodeAnalysisReportGenerator
         public void GetCodeAnalysisLog(string codeAnalysisLogPath)
         {
             if (File.Exists(codeAnalysisLogPath))
+            {
                 CountIssues(codeAnalysisLogPath);
-            else
-                errorReportGenerator = "CodeAnalysisLog não existe";
+                messageReportGenerator = string.Empty;
+            }
         }
 
         private async void CountIssues(string codeAnalysisLogPath)

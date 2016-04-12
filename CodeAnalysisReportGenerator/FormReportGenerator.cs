@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Windows.Forms;
-using Microsoft.Build.Evaluation;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
@@ -17,10 +16,6 @@ namespace CodeAnalysisReportGenerator
 
     public partial class FormReportGenerator : Form
     {
-        private int progressBarValue;
-        private List<DirectoryInfo> listDirectoryInfo;
-        private List<ReportGenerator> listReportGenerator;
-
         private Properties.Settings properties = Properties.Settings.Default;
 
         public FormReportGenerator()
@@ -39,54 +34,57 @@ namespace CodeAnalysisReportGenerator
         {
             try
             {
+                pbGeneratorReport.Value = 0;
+
                 ValidateField();
                 SaveConfiguration();
 
-                listDirectoryInfo = new List<DirectoryInfo>();
+                lblInformation.Text = "Load ruleset file...";
+                await GetRules();
 
-                lblInformation.Text = "Getting directories...";
-                DirectoryInfo directoryInfo = new DirectoryInfo(properties.DirectoryProject);
-                await GetDirectory(directoryInfo);
-
-                listReportGenerator = new List<ReportGenerator>();
+                GetProjects();
 
                 btnReportGenerator.Enabled = false;
                 btnCancel.Enabled = true;
-
-                lblInformation.Text = "Load rule set...";
-                await GetRules();
-
-                lblInformation.Text = "Find projects...";
-                FindProjects();
 
                 EndExecution();
             }
             catch (Exception ex)
             {
-                ControlException(ex);
+                ControlException(ex.Message);
             }
         }
 
-        private async void FindProjects()
+        private async void GetProjects()
         {
-            List<FileInfo> listFileInfo;
-            progressBarValue = 0;
-            if (GetFiles("*.csproj", out listFileInfo))
-            {
-                pbGeneratorReport.Maximum = listFileInfo.Count;
-                await BuildProject(listFileInfo);
+            var directoryInfo = new DirectoryInfo(properties.DirectoryProject);
 
-                if (GetFiles("*CodeAnalysisLog*", out listFileInfo))
-                {
-                    pbGeneratorReport.Maximum += listFileInfo.Count;
-                    await GetProjectLog(listFileInfo);
-                }
-                else
-                    MessageBox.Show("Não foram encontrados arquivos CodeAnalysisLog no diretório selecionado", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            else
-                MessageBox.Show("Não foram encontrados arquivos .csproj no diretório selecionado","", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            ProjectTask projectTask = new ProjectTask(directoryInfo);
+            projectTask.UpdateMaximumStatusValueEventHandler += new MaximumStatusValueEventHandler(UpdateMaximumProgressValue);
+            projectTask.UpdateStatusEventHandler += new StatusEventHandler(UpdateProgressValue);
+            projectTask.SetMessageInformationEventHandler += new MessageInformationEventHandler(UpdateMessage);
+
+            await projectTask.FindProject();
+           
+            await projectTask.FindProjectLog();
         }
+
+        private void UpdateMaximumProgressValue(object sender, EventArgs e)
+        {
+            SetControlPropertyValue(pbGeneratorReport, "maximum", ProjectTask.maximunStatusValue);
+        }
+
+        private void UpdateProgressValue(object sender, EventArgs e)
+        {
+            SetControlPropertyValue(pbGeneratorReport, "value", ProjectTask.statusValue);
+        }
+
+        private void UpdateMessage(object sender, EventArgs e)
+        {
+            SetControlPropertyValue(lblInformation, "text", ProjectTask.messageInformation);
+        }
+
+        
 
         private void EndExecution()
         {
@@ -96,54 +94,9 @@ namespace CodeAnalysisReportGenerator
                 lblInformation.Text = "";
                 CancelExecution.cancelExecution = false;
             }
-            else
-                lblInformation.Text = "Relatório gerado com sucesso!";
 
             btnReportGenerator.Enabled = true;
             btnCancel.Enabled = false;
-        }
-
-        private async Task BuildProject(List<FileInfo> listFileInfo)
-        {
-            await Task.Run(() =>
-            {
-                using (ProjectCollection projectCollection = new ProjectCollection())
-                {
-                    Project project;
-
-                    foreach (var file in listFileInfo)
-                    {
-                        if (CancelExecution.cancelExecution)
-                            break;
-
-                        project = projectCollection.LoadProject(file.FullName);
-                        project.Build();
-                        projectCollection.UnloadProject(project);
-
-                        //Update status of execution
-                        SetControlPropertyValue(pbGeneratorReport, "value", ++progressBarValue);
-                    }
-                }
-            });
-        }
-
-        private async Task GetProjectLog(List<FileInfo> listFileInfo)
-        {
-            await Task.Run(() =>
-            {
-                ReportGenerator reportGenerator;
-
-                foreach (var file in listFileInfo)
-                {
-                    var result = file.Name.Split('.');
-                    reportGenerator = new ReportGenerator(result?[0]);
-                    reportGenerator.GetCodeAnalysisLog(file.FullName);
-                    listReportGenerator.Add(reportGenerator);
-
-                    //Update status of execution
-                    SetControlPropertyValue(pbGeneratorReport, "value", ++progressBarValue);
-                }
-            });
         }
 
         private void SaveConfiguration()
@@ -184,7 +137,58 @@ namespace CodeAnalysisReportGenerator
             ReportGenerator.listRulesError = listRulesError;
 
             if (listRulesError.Count < 1 && !CancelExecution.cancelExecution)
-                MessageBox.Show("O arquivo RuleSet não contém regras do tipo \"Error\"", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("The ruleset file does not have \"error\" type rules", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private void btnCancel_Click(object sender, EventArgs e)
+        {
+            CancelExecution.cancelExecution = true;
+            lblInformation.Text = "Cancel...";
+        }
+
+        private void ValidateField()
+        {
+            if (string.IsNullOrWhiteSpace(txtProjectDirectory.Text) || string.IsNullOrWhiteSpace(txtDirectoryRuleSet.Text) ||
+                string.IsNullOrWhiteSpace(txtDirectoryTemplateExcel.Text))
+            {
+                ControlException("All fields must be filled!");
+            }
+        }
+
+        private void btnProjectDirectory_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FolderBrowserDialog folder = new FolderBrowserDialog();
+                folder.ShowDialog();
+                txtProjectDirectory.Text = folder.SelectedPath;
+            }
+            catch (Exception ex)
+            {
+                ControlException(ex.Message);
+            }
+        }
+
+        private void OpenFileDialog_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                OpenFileDialog file = new OpenFileDialog();
+                file.ShowDialog();
+                txtDirectoryRuleSet.Text = file.FileName;
+            }
+            catch (Exception ex)
+            {
+                ControlException(ex.Message);
+            }
+        }
+
+        private void ControlException(string message)
+        {
+            CancelExecution.cancelExecution = true;
+            EndExecution();
+
+            MessageBox.Show($"There was a problem extracting Code Analysis! \n\n {message} \n\n", "", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         delegate void SetControlValueCallback(Control oControl, string propName, object propValue);
@@ -204,85 +208,6 @@ namespace CodeAnalysisReportGenerator
                 PropertyInfo property = props.Where(p => p.Name.ToUpper() == propName.ToUpper()).FirstOrDefault();
                 property.SetValue(oControl, propValue);
             }
-        }
-
-        private void btnCancel_Click(object sender, EventArgs e)
-        {
-            CancelExecution.cancelExecution = true;
-            lblInformation.Text = "Cancel...";
-        }
-
-        private void ValidateField()
-        {
-            if (string.IsNullOrWhiteSpace(txtProjectDirectory.Text) || string.IsNullOrWhiteSpace(txtDirectoryRuleSet.Text) ||
-                string.IsNullOrWhiteSpace(txtDirectoryTemplateExcel.Text))
-            {
-                throw new Exception("Todos os campos devem ser preenchidos!");
-            }
-        }
-
-        private void btnProjectDirectory_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                FolderBrowserDialog folder = new FolderBrowserDialog();
-                folder.ShowDialog();
-                txtProjectDirectory.Text = folder.SelectedPath;
-            }
-            catch (Exception ex)
-            {
-                ControlException(ex);
-            }
-        }
-
-        private void OpenFileDialog_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                OpenFileDialog file = new OpenFileDialog();
-                file.ShowDialog();
-                txtDirectoryRuleSet.Text = file.FileName;
-            }
-            catch (Exception ex)
-            {
-                ControlException(ex);
-            }
-        }
-
-        private void ControlException(Exception ex)
-        {
-            CancelExecution.cancelExecution = true;
-            EndExecution();
-
-            MessageBox.Show(String.Format("Houve um problema na extração do Code Analysis: \n\n {0} \n\n",
-                                ex.Message), "", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-
-        private bool GetFiles(string fileExtension, out List<FileInfo> listFileInfo)
-        {
-            listFileInfo = new List<FileInfo>();
-            FileInfo file;
-
-            foreach (var directory in listDirectoryInfo)
-            {
-                file = directory.GetFiles(fileExtension).FirstOrDefault();
-                if (file != null)
-                    listFileInfo.Add(file);
-            }
-
-            return listFileInfo.Count > 0;
-        }
-
-        private async Task GetDirectory(DirectoryInfo d)
-        {
-           await Task.Run(async () =>
-            {
-                foreach (var item in d.GetDirectories())
-                {
-                    listDirectoryInfo.Add(item);
-                    await GetDirectory(item);
-                }
-            });
         }
 
     }
